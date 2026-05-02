@@ -20,6 +20,7 @@
 #include "ggml-cuda/cpy.cuh"
 #include "ggml-cuda/cross-entropy-loss.cuh"
 #include "ggml-cuda/cumsum.cuh"
+#include "ggml-cuda/dsv4.cuh"
 #include "ggml-cuda/diagmask.cuh"
 #include "ggml-cuda/diag.cuh"
 #include "ggml-cuda/fattn.cuh"
@@ -2934,6 +2935,21 @@ static bool ggml_cuda_compute_forward(ggml_backend_cuda_context & ctx, struct gg
         case GGML_OP_GATED_DELTA_NET:
             ggml_cuda_op_gated_delta_net(ctx, dst);
             break;
+        case GGML_OP_DSV4_HC_SPLIT_SINKHORN:
+            ggml_cuda_op_dsv4_hc_split_sinkhorn(ctx, dst);
+            break;
+        case GGML_OP_DSV4_HC_WEIGHTED_SUM:
+            ggml_cuda_op_dsv4_hc_weighted_sum(ctx, dst);
+            break;
+        case GGML_OP_DSV4_HC_EXPAND:
+            ggml_cuda_op_dsv4_hc_expand(ctx, dst);
+            break;
+        case GGML_OP_DSV4_FP8_KV_QUANTIZE:
+            ggml_cuda_op_dsv4_fp8_kv_quantize(ctx, dst);
+            break;
+        case GGML_OP_DSV4_ROPE_TAIL:
+            ggml_cuda_op_dsv4_rope_tail(ctx, dst);
+            break;
         case GGML_OP_RWKV_WKV7:
             ggml_cuda_op_rwkv_wkv7(ctx, dst);
             break;
@@ -5201,6 +5217,41 @@ static bool ggml_backend_cuda_device_supports_op(ggml_backend_dev_t dev, const g
 #else
             return true;
 #endif // GGML_USE_MUSA
+        case GGML_OP_DSV4_HC_SPLIT_SINKHORN:
+            return op->type == GGML_TYPE_F32 &&
+                op->src[0]->type == GGML_TYPE_F32 && ggml_is_contiguous_rows(op->src[0]) &&
+                op->src[1]->type == GGML_TYPE_F32 && ggml_is_contiguous(op->src[1]) &&
+                op->src[2]->type == GGML_TYPE_F32 && ggml_is_contiguous(op->src[2]) &&
+                ggml_get_op_params_i32(op, 0) > 0 && ggml_get_op_params_i32(op, 0) <= 16;
+        case GGML_OP_DSV4_HC_WEIGHTED_SUM:
+            return op->type == GGML_TYPE_F32 &&
+                op->src[0]->type == GGML_TYPE_F32 &&
+                op->src[1]->type == GGML_TYPE_F32;
+        case GGML_OP_DSV4_HC_EXPAND:
+            return op->type == GGML_TYPE_F32 &&
+                op->src[0]->type == GGML_TYPE_F32 &&
+                op->src[1]->type == GGML_TYPE_F32 &&
+                op->src[2]->type == GGML_TYPE_F32 &&
+                op->src[3]->type == GGML_TYPE_F32;
+        case GGML_OP_DSV4_FP8_KV_QUANTIZE:
+            {
+                const int64_t n_rot = ggml_get_op_params_i32(op, 0);
+                const int64_t n_nope = op->src[0]->ne[0] - n_rot;
+                return op->type == GGML_TYPE_F32 && op->src[0]->type == GGML_TYPE_F32 &&
+                    op->src[0]->nb[0] == sizeof(float) && n_rot >= 0 && n_nope > 0 && n_nope % 64 == 0;
+            }
+        case GGML_OP_DSV4_ROPE_TAIL:
+            {
+                const int n_dims = ggml_get_op_params_i32(op, 0);
+                const int mode = ggml_get_op_params_i32(op, 1);
+                return (op->src[0]->type == GGML_TYPE_F32 || op->src[0]->type == GGML_TYPE_F16) &&
+                    op->type == op->src[0]->type &&
+                    op->src[1]->type == GGML_TYPE_I32 &&
+                    (op->src[2] == nullptr || op->src[2]->type == GGML_TYPE_F32) &&
+                    op->src[0]->nb[0] == ggml_type_size(op->src[0]->type) && ggml_is_contiguous_2(op->src[0]) &&
+                    n_dims > 0 && n_dims <= op->src[0]->ne[0] && n_dims % 2 == 0 &&
+                    (mode == GGML_ROPE_TYPE_NORMAL || mode == GGML_ROPE_TYPE_NEOX);
+            }
         case GGML_OP_FLASH_ATTN_EXT:
             return ggml_cuda_flash_attn_ext_supported(dev_ctx->device, op);
         case GGML_OP_CROSS_ENTROPY_LOSS:
