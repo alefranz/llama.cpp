@@ -22,7 +22,7 @@ if not defined INSTALL_DIR set "INSTALL_DIR=C:\Software\llama\current"
 
 set "SCRIPT_DIR=%~dp0"
 
-pushd "%~dp0.."
+pushd "%~dp0..\.."
 if errorlevel 1 goto ERROR
 
 if /I "%ACTION%"=="all" goto ALL
