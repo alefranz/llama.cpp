@@ -10,7 +10,7 @@ if not defined CONFIG set "CONFIG=Release"
 set "INSTALL_DIR=%~3"
 if not defined INSTALL_DIR set "INSTALL_DIR=C:\Software\llama\current"
 
-pushd "%~dp0.."
+pushd "%~dp0..\.."
 if errorlevel 1 goto ERROR
 
 set "SOURCE=%BUILD_DIR%\bin\%CONFIG%"

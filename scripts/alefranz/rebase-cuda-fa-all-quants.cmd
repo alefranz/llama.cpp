@@ -24,7 +24,7 @@ if errorlevel 1 (
 )
 
 echo === Interactive rebase onto master ===
-git rebase -i master
+git rebase master
 if errorlevel 1 (
     echo Error: Rebase failed or was aborted.
     exit /B 1
