@@ -17,7 +17,7 @@ if not defined CONFIG set "CONFIG=Release"
 set "BUILD_DIR=%~4"
 if not defined BUILD_DIR set "BUILD_DIR=build-cuda-fa-all-quants"
 
-pushd "%~dp0.."
+pushd "%~dp0..\.."
 if errorlevel 1 goto ERROR
 
 if /I "%ACTION%"=="all" goto ALL
